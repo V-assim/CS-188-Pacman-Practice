@@ -4,7 +4,7 @@
 # educational purposes provided that (1) you do not distribute or publish
 # solutions, (2) you retain this notice, and (3) you provide clear
 # attribution to UC Berkeley, including a link to http://ai.berkeley.edu.
-# 
+#
 # Attribution Information: The Pacman AI projects were developed at UC Berkeley.
 # The core projects and autograders were primarily created by John DeNero
 # (denero@cs.berkeley.edu) and Dan Klein (klein@cs.berkeley.edu).
@@ -72,9 +72,47 @@ class ReflexAgent(Agent):
         newFood = successorGameState.getFood()
         newGhostStates = successorGameState.getGhostStates()
         newScaredTimes = [ghostState.scaredTimer for ghostState in newGhostStates]
+        #print(newPos, '\n', newFood.asList(), '\n', newGhostStates, '\n', newScaredTimes)
 
         "*** YOUR CODE HERE ***"
-        return successorGameState.getScore()
+
+        if len([ghost for ghost in newGhostStates if ghost.scaredTimer == 0]) != 0:
+            closest_ghost_dist = min([manhattanDistance(newPos, ghost.getPosition()) for ghost in newGhostStates if ghost.scaredTimer == 0])
+
+            closest_ghost_dist = -1 / (closest_ghost_dist + 0.1)
+        else:
+            closest_ghost_dist = 0
+
+
+        if len([ghost for ghost in newGhostStates if ghost.scaredTimer > 0]) != 0:
+            closest_scared_ghost_dist = min([manhattanDistance(newPos, ghost.getPosition()) for ghost in newGhostStates if ghost.scaredTimer > 0])
+
+            closest_scared_ghost_dist = 0.3 / (closest_scared_ghost_dist + 0.1)
+        else:
+            closest_scared_ghost_dist = 0
+
+
+        num_food = successorGameState.getNumFood()
+        if num_food:
+            closest_food_dist = min([manhattanDistance(newPos, food) for food in newFood.asList()])
+
+            closest_food_dist = 2 / (closest_food_dist + 0.1)
+        else:
+            closest_food_dist = 0
+
+
+        newPowerPellets = successorGameState.getCapsules()
+        if len(newPowerPellets) != 0:
+            closest_power_pellet = min([manhattanDistance(newPos, pellet) for pellet in newPowerPellets])
+
+            closest_power_pellet = 0 / (closest_power_pellet + 0.1)
+        else:
+            closest_power_pellet = 0
+        #return successorGameState.getScore()
+
+        # Linear Combination
+        #return successorGameState.getScore()-3*closest_food_dist +closest_ghost_dist -num_food
+        return successorGameState.getScore() + closest_food_dist + closest_power_pellet + closest_ghost_dist + closest_scared_ghost_dist - num_food
 
 def scoreEvaluationFunction(currentGameState):
     """
@@ -135,7 +173,24 @@ class MinimaxAgent(MultiAgentSearchAgent):
             Returns whether or not the game state is a losing state
         """
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        return self.value(gameState, self.index, 0)[1]
+        #util.raiseNotDefined()
+
+    def value(self, gameState, agentIndex, depth):
+        if (depth < self.depth) and (not gameState.isWin()) and (not gameState.isLose()):
+            legal_actions = gameState.getLegalActions(agentIndex)
+
+            branches = [(self.value(gameState.generateSuccessor(agentIndex, action), (agentIndex+1)%gameState.getNumAgents(), depth+(1*(agentIndex==gameState.getNumAgents()-1)) )[0], action) for action in legal_actions]
+
+            #print(branches)
+            if agentIndex == 0:
+                return(max(branches))
+            else:
+                return(min(branches))
+
+
+        else:
+            return (self.evaluationFunction(gameState), None)
 
 class AlphaBetaAgent(MultiAgentSearchAgent):
     """
@@ -147,7 +202,35 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
           Returns the minimax action using self.depth and self.evaluationFunction
         """
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        alpha = -float('inf')
+        beta = float('inf')
+        return self.value(gameState, self.index, 0, alpha, beta)[1]
+        #util.raiseNotDefined()
+
+    def value(self, gameState, agentIndex, depth, alpha, beta):
+        v = (float('inf') * (-1)**(agentIndex==0), '')
+        if (depth < self.depth) and (not gameState.isWin()) and (not gameState.isLose()):
+            legal_actions = gameState.getLegalActions(agentIndex)
+
+            for action in legal_actions:
+                tmp = (self.value(gameState.generateSuccessor(agentIndex, action), (agentIndex+1)%gameState.getNumAgents(), depth+(1*(agentIndex==gameState.getNumAgents()-1)), alpha, beta )[0], action)
+
+                if agentIndex == 0:
+                    v = max(v, tmp)
+                    if v[0] > beta:
+                        return v
+                    alpha = max(alpha, v[0])
+
+                else:
+                    v = min(v, tmp)
+                    if v[0] < alpha:
+                        return v
+                    beta = min(beta, v[0])
+
+            return v
+
+        else:
+            return (self.evaluationFunction(gameState), None)
 
 class ExpectimaxAgent(MultiAgentSearchAgent):
     """
@@ -162,7 +245,24 @@ class ExpectimaxAgent(MultiAgentSearchAgent):
           legal moves.
         """
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        return self.value(gameState, self.index, 0)[1]
+        #util.raiseNotDefined()
+
+    def value(self, gameState, agentIndex, depth):
+        if (depth < self.depth) and (not gameState.isWin()) and (not gameState.isLose()):
+            legal_actions = gameState.getLegalActions(agentIndex)
+
+            branches = [(self.value(gameState.generateSuccessor(agentIndex, action), (agentIndex+1)%gameState.getNumAgents(), depth+(1*(agentIndex==gameState.getNumAgents()-1)) )[0], action) for action in legal_actions]
+
+            #print(branches)
+            if agentIndex == 0:
+                return(max(branches))
+            else:
+                return(sum([elem[0] for elem in branches])/(len(branches)+0.0001), '')
+
+
+        else:
+            return (self.evaluationFunction(gameState), None)
 
 def betterEvaluationFunction(currentGameState):
     """
@@ -172,8 +272,53 @@ def betterEvaluationFunction(currentGameState):
       DESCRIPTION: <write something here so we know what you did>
     """
     "*** YOUR CODE HERE ***"
-    util.raiseNotDefined()
+    # Useful information you can extract from a GameState (pacman.py)
+    pos = currentGameState.getPacmanPosition()
+    foodList = currentGameState.getFood()
+    ghostStates = currentGameState.getGhostStates()
+    scaredTimes = [ghostState.scaredTimer for ghostState in ghostStates]
+    #print(newPos, '\n', newFood.asList(), '\n', newGhostStates, '\n', newScaredTimes)
+
+    "*** YOUR CODE HERE ***"
+
+    if len([ghost for ghost in ghostStates if ghost.scaredTimer == 0]) != 0:
+        closest_ghost_dist = min([manhattanDistance(pos, ghost.getPosition()) for ghost in ghostStates if ghost.scaredTimer == 0])
+
+        closest_ghost_dist = -2 / (closest_ghost_dist + 1)
+    else:
+        closest_ghost_dist = 0
+
+
+    if len([ghost for ghost in ghostStates if ghost.scaredTimer > 0]) != 0:
+        closest_scared_ghost_dist = min([manhattanDistance(pos, ghost.getPosition()) for ghost in ghostStates if ghost.scaredTimer > 0])
+
+        closest_scared_ghost_dist = 0.3 / (closest_scared_ghost_dist + 1)
+    else:
+        closest_scared_ghost_dist = 0
+
+
+    num_food = currentGameState.getNumFood()
+    if num_food:
+        closest_food_dist = min([manhattanDistance(pos, food) for food in foodList.asList()])
+
+        closest_food_dist = 2 / (closest_food_dist + 1)
+    else:
+        closest_food_dist = 0
+
+
+    powerPellets = currentGameState.getCapsules()
+    if len(powerPellets) != 0:
+        closest_power_pellet = min([manhattanDistance(pos, pellet) for pellet in powerPellets])
+
+        closest_power_pellet = 0.5 / (closest_power_pellet + 1)
+    else:
+        closest_power_pellet = 0
+    #return successorGameState.getScore()
+
+    # Linear Combination
+    #return successorGameState.getScore()-3*closest_food_dist +closest_ghost_dist -num_food
+    return currentGameState.getScore() + closest_food_dist + closest_power_pellet + closest_ghost_dist + closest_scared_ghost_dist - num_food
+    #util.raiseNotDefined()
 
 # Abbreviation
 better = betterEvaluationFunction
-
